@@ -1,0 +1,8 @@
+*.local
+
+# Environments
+.env
+
+# IDE
+.idea
+

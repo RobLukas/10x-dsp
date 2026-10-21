@@ -1,0 +1,28 @@
+{
+  "enabledPlugins": {
+    "frontend-design@anthropic-plugin-directory": false
+  },
+  "permissions": {
+    "ask": [
+      "Bash(terraform apply *)",
+      "Bash(terraform destroy *)",
+      "Bash(task * terraform apply *)",
+      "Bash(helm install *)",
+      "Bash(helm upgrade *)",
+      "Bash(tenx run *)",
+      "Bash(go run ./cmd/tenx run *)",
+      "Bash(gcloud * create *)",
+      "Bash(gcloud * deploy *)"
+    ],
+    "deny": [
+      "Read(./.env)",
+      "Read(./**/.env)",
+      "Edit(./.env)",
+      "Bash(cat .env)",
+      "Bash(cat .env *)",
+      "Bash(source .env)",
+      "Bash(git add .env)",
+      "Bash(git add -f .env)"
+    ]
+  }
+}
