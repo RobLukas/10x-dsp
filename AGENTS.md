@@ -5,25 +5,6 @@ A minimal but realistic demand-side platform (DSP) serves as a repeatable, well-
 critical bidding path can be swapped in and compared under identical synthetic traffic. Architectural trade-offs and production
 anti-patterns are then expressed as numbers instead of opinions.
 
-# 10x-dsp
-
-A testbed for measuring architectural decisions in latency-critical systems, written in Go.
-It is NOT an advertising product. A minimal DSP is only a repeatable workload. Competing
-implementations of the bidding critical path are swapped in and compared under identical
-synthetic traffic, so trade-offs become numbers instead of opinions.
-
-Central question: what does it cost to split the bidding path across a service boundary
-(DSP → gRPC → CTR prediction service)?
-
-## Source documents (read on demand, do not paraphrase from memory)
-
-- `.ai/docs/prd.md` — requirements (FR-xxx), user stories (US-xxx), open decisions (OD-xx), success metrics (SM-xx)
-- `.ai/docs/tech-stack.md` — allowed languages, libraries, infrastructure
-- `.ai/assets/architecture-diagram-v1-0-0.png` — component map
-- `.claude/skills/architecture-guide/references/architecture-diagram.md` — textual description of the diagram
-
-Cite requirement IDs (e.g. "FR-009", "US-024") in plans, commits and PR descriptions when a change implements or touches one.
-
 ## Non-negotiable rules
 
 These protect measurement validity. Breaking any of them makes results worthless, so never trade them for convenience.
