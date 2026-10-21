@@ -9,7 +9,7 @@ The purpose of the architecture is **fair measurement**. Every rule below exists
 variants differ in exactly one thing. When a design choice is ambiguous, pick the option that
 keeps comparisons fair, then the simplest one.
 
-For the component diagram read `references/architecture-diagram.md` (image: `.ai/assets/architecture-diagram-v1-0-0.png`).
+For the component diagram read `references/architecture-diagram.md` (image: `.ai/docs/architecture-diagram-v1-0-0.png`).
 For requirement details read `.ai/docs/prd.md`.
 
 ## 1. Components and the critical path
@@ -37,4 +37,4 @@ must never block request handling.
 1. Find the relevant FR/US/OD in `.ai/docs/prd.md` and cite the ID.
 2. If the PRD answers it, follow it. If it is an open OD, propose options with trade-offs expressed in what the experiment can observe, make it configurable if cheap, and suggest an ADR (`write-adr`).
 3. Prefer the design that keeps the variable under test isolated over the "production-best" design.
-4. When components, hops or boundaries change, update `references/architecture-diagram.md` and bump the diagram version in `.ai/assets/`.
+4. When components, hops or boundaries change, update `references/architecture-diagram.md` and bump the diagram version in `.ai/docs/`.
