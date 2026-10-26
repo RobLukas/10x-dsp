@@ -1,33 +1,9 @@
 # AI Rules for 10x-dsp
 
-10x-dsp is a testbed for measuring architectural decisions in high-traffic systems, written in Go. It is not an advertising product. 
-A minimal but realistic demand-side platform (DSP) serves as a repeatable, well-understood workload. Competing implementations of the 
+10x-dsp is a testbed for measuring architectural decisions in high-traffic systems, written in Go. It is not an advertising product.
+A minimal but realistic demand-side platform (DSP) serves as a repeatable, well-understood workload. Competing implementations of the
 critical bidding path can be swapped in and compared under identical synthetic traffic. Architectural trade-offs and production
 anti-patterns are then expressed as numbers instead of opinions.
-
-## Non-negotiable rules
-
-These protect measurement validity. Breaking any of them makes results worthless, so never trade them for convenience.
-
-1. **Compared variants run identical bidding code.** Bidding logic lives only in the shared `core` package. Variants differ only by implementations of strategy interfaces (`Scorer`, `Targeter`, `StateStore`, logging handler), selected by configuration at startup. One DSP image for all variants.
-2. **The SSP simulator and the measurement layer are frozen for experiments.** Adding a variant or scenario must not require changes there (FR-071, US-046). If it seems to, stop and ask.
-3. **Reported latency comes only from SSP-side HDR histograms** (FR-034). Internal metrics, pprof and Grafana are diagnostic only.
-4. **Every response respects the hard time budget** (`tmax` − network allowance). Every outbound call on the critical path has a deadline derived from the remaining budget.
-5. **Determinism.** Everything random is seeded: traffic, inventory, CTR table, clearing prices. Same seed → same requests, same snapshot bytes, same CTRs.
-6. **Runtime settings are fixed across variants** (GOMAXPROCS from CPU limit, GOGC, GOMEMLIMIT, pool sizes) and reported in metadata. Do not add `automaxprocs`.
-7. **Invalid runs are never reported**: `generator_saturated`, `cpu_throttled`, `aborted`, `non-reference`, `dirty`. Comparisons only within one session.
-8. **Prediction service lookups make no network calls.** The gRPC hop must be the only thing being measured.
-
-## Scope guard
-
-Out of scope for the MVP (do not implement, do not "prepare for"): real exchanges and full OpenRTB, money/billing,
-creatives, consent/fraud/brand safety, real ML, attribution/warehousing, auth and user roles (only infra-level access control),
-multi-region, autoscaling, custom web dashboard, visual polish. Post-MVP backlog is in PRD 4.5 — `kelindar/bitmap` targeting is post-MVP even though it is in tech-stack; MVP uses linear scan behind `Targeter`.
-
-## Open decisions
-
-PRD section 4.4 lists OD-01 … OD-14. Never silently resolve an open decision in code.
-If a task depends on one, state the assumption explicitly, make it configurable where cheap, and propose an ADR (skill `write-adr`).
 
 ## Stack
 
@@ -69,7 +45,65 @@ experiments/    experiment reports (hypothesis committed before the first run)
 .ai/docs/       PRD, tech stack, ADRs
 ```
 
-Directories not yet created follow this layout. See skill `architecture-guide` for package boundaries.
+Some of the directories not yet created follow this layout.
+
+## Components and the critical path
+
+| Component              | Binary                  | Critical path                    | Talks to                                                                           |
+|------------------------|-------------------------|----------------------------------|------------------------------------------------------------------------------------|
+| DSP service            | `cmd/dsp`               | yes                              | Redis (Lua, 1 round-trip), prediction (gRPC), GCS + Pub/Sub (off-path, background) |
+| CTR prediction service | `cmd/prediction`        | yes (remote variant)             | nothing — in-memory seeded table                                                   |
+| SSP simulator          | `cmd/ssp`               | traffic source, black-box client | DSP via internal passthrough NLB                                                   |
+| Inventory builder      | `cmd/inventory-builder` | no                               | GCS (snapshot, then `latest` manifest), Pub/Sub (then publish)                     |
+| `tenx` CLI             | `cmd/tenx`              | no                               | Helm, Terraform outputs, control + metadata endpoints, GCS results                 |
+
+Critical path per bid request:
+
+```
+SSP ─HTTP/1.1─▶ DSP: parse → budget(tmax − allowance) → Targeter (snapshot) → StateStore (Redis Lua)
+                     → Scorer (gRPC or in-process) → price (CTR-based or fallback_bid) → response
+```
+
+Anything not on this line (snapshot reload, Pub/Sub, metrics scraping, logging in async variants)
+must never block request handling.
+
+## Non-negotiable rules
+
+These protect measurement validity. Breaking any of them makes results worthless, so never trade them for convenience.
+
+1. **Compared variants run identical bidding code.** Bidding logic lives only in the shared `core` package. Variants differ only by
+   implementations of strategy interfaces (`Scorer`, `Targeter`, `StateStore`, logging handler), selected by configuration at startup. One
+   DSP image for all variants.
+2. **The SSP simulator and the measurement layer are frozen for experiments.** Adding a variant or scenario must not require changes there
+   (FR-071, US-046). If it seems to, stop and ask.
+3. **Reported latency comes only from SSP-side HDR histograms** (FR-034). Internal metrics, pprof and Grafana are diagnostic only.
+4. **Every response respects the hard time budget** (`tmax` − network allowance). Every outbound call on the critical path has a deadline
+   derived from the remaining budget.
+5. **Determinism.** Everything random is seeded: traffic, inventory, CTR table, clearing prices. Same seed → same requests, same snapshot
+   bytes, same CTRs.
+6. **Runtime settings are fixed across variants** (GOMAXPROCS from CPU limit, GOGC, GOMEMLIMIT, pool sizes) and reported in metadata. Do not
+   add `automaxprocs`.
+7. **Invalid runs are never reported**: `generator_saturated`, `cpu_throttled`, `aborted`, `non-reference`, `dirty`. Comparisons only within
+   one session.
+8. **Prediction service lookups make no network calls.** The gRPC hop must be the only thing being measured.
+
+## Working rules for Claude
+
+- Tests: table-driven, deterministic (fixed seeds, no wall-clock sleeps where a fake clock works). Hot-path changes need a benchmark
+  (`go test -bench . -benchmem`).
+- Keep comments and docs in English.
+
+## Scope guard
+
+Out of scope for the MVP (do not implement, do not "prepare for"): real exchanges and full OpenRTB, money/billing,
+creatives, consent/fraud/brand safety, real ML, attribution/warehousing, auth and user roles (only infra-level access control),
+multi-region, autoscaling, custom web dashboard, visual polish. Post-MVP backlog is in PRD 4.5 — `kelindar/bitmap` targeting is post-MVP
+even though it is in tech-stack; MVP uses linear scan behind `Targeter`.
+
+## Open decisions
+
+PRD section 4.4 lists OD-01 … OD-14. Never silently resolve an open decision in code.
+If a task depends on one, state the assumption explicitly, make it configurable where cheap, and propose an ADR (skill `write-adr`).
 
 ## Commands
 
@@ -83,8 +117,3 @@ go test -race ./...
 golangci-lint run
 govulncheck ./...
 ```
-
-## Working rules for Claude
-
-- Tests: table-driven, deterministic (fixed seeds, no wall-clock sleeps where a fake clock works). Hot-path changes need a benchmark (`go test -bench . -benchmem`).
-- Keep comments and docs in English.

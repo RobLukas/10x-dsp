@@ -12,27 +12,7 @@ keeps comparisons fair, then the simplest one.
 For the component diagram read `references/architecture-diagram.md` (image: `.ai/docs/architecture-diagram-v1-0-0.png`).
 For requirement details read `.ai/docs/prd.md`.
 
-## 1. Components and the critical path
-
-| Component | Binary | Critical path | Talks to |
-|---|---|---|---|
-| DSP service | `cmd/dsp` | yes | Redis (Lua, 1 round-trip), prediction (gRPC), GCS + Pub/Sub (off-path, background) |
-| CTR prediction service | `cmd/prediction` | yes (remote variant) | nothing — in-memory seeded table |
-| SSP simulator | `cmd/ssp` | traffic source, black-box client | DSP via internal passthrough NLB |
-| Inventory builder | `cmd/inventory-builder` | no | GCS (snapshot, then `latest` manifest), Pub/Sub (then publish) |
-| `tenx` CLI | `cmd/tenx` | no | Helm, Terraform outputs, control + metadata endpoints, GCS results |
-
-Critical path per bid request:
-
-```
-SSP ─HTTP/1.1─▶ DSP: parse → budget(tmax − allowance) → Targeter (snapshot) → StateStore (Redis Lua)
-                     → Scorer (gRPC or in-process) → price (CTR-based or fallback_bid) → response
-```
-
-Anything not on this line (snapshot reload, Pub/Sub, metrics scraping, logging in async variants)
-must never block request handling.
-
-## 3. How to answer an architecture question
+## 1. How to answer an architecture question
 
 1. Find the relevant FR/US/OD in `.ai/docs/prd.md` and cite the ID.
 2. If the PRD answers it, follow it. If it is an open OD, propose options with trade-offs expressed in what the experiment can observe, make it configurable if cheap, and suggest an ADR (`write-adr`).
